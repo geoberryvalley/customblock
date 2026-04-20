@@ -18,16 +18,32 @@ Artblock is a Chrome extension that detects advertisements, sponsored content, a
 
 ## Install
 
-### From the Chrome Web Store
+### From the Chrome Web Store / Firefox Add-ons
 
-_(Coming soon.)_
+_(Coming soon on both.)_
 
 ### Unpacked (development)
+
+**Chrome / Edge / Brave**
 
 1. Clone this repo: `git clone https://github.com/vuciv/artblock.git`
 2. Open `chrome://extensions`, enable **Developer mode**
 3. Click **Load unpacked**, select the repo root
 4. Visit any ad-supported site — the replacements happen automatically
+
+**Firefox**
+
+1. Clone the repo
+2. Run `./build.sh` — produces `artblock-firefox-v1.0.0.zip`
+3. Open `about:debugging#/runtime/this-firefox` → **Load Temporary Add-on** → select the zip (or the repo's `manifest.firefox.json`)
+
+## Building release packages
+
+```
+./build.sh
+```
+
+Produces `artblock-chrome-vX.Y.Z.zip` and `artblock-firefox-vX.Y.Z.zip`, ready to upload to their respective stores. The Firefox build uses `manifest.firefox.json`, which adds `browser_specific_settings.gecko.id` (required by AMO) and an event-page `background.scripts` declaration for compatibility with Firefox 109+.
 
 ## How it works
 
