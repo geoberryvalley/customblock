@@ -5,11 +5,11 @@
   const AR = window.__artReplacer;
   if (!AR) return;
 
-  const ALL_CATEGORIES = ['impressionism', 'japanese', 'photography', 'renaissance', 'modern', 'space'];
+  const ALL_CATEGORIES = [];
   const CATEGORY_DEFAULTS = Object.fromEntries(ALL_CATEGORIES.map(k => [k, true]));
 
   const [syncSettings, localData] = await Promise.all([
-    chrome.storage.sync.get({ enabled: true, showHoverControls: true, categories: CATEGORY_DEFAULTS }),
+    chrome.storage.sync.get({ enabled: true}),
     chrome.storage.local.get({ unblockedElements: [] }),
   ]);
 
@@ -26,50 +26,6 @@
   );
 
   // ── Image URL helpers ────────────────────────────────────────────────────
-
-  function getImageUrl(artwork, targetWidth, targetHeight) {
-    if (artwork.imageId) {
-      const w = Math.min(Math.round(targetWidth * 2), 843);
-
-      if (artwork.width && artwork.height) {
-        const targetRatio = targetWidth / targetHeight;
-        const artRatio = artwork.width / artwork.height;
-        const ratioDiff = Math.abs(artRatio - targetRatio) / targetRatio;
-
-        if (ratioDiff > 0.2) {
-          let cropW, cropH, cropX, cropY;
-          if (targetRatio > artRatio) {
-            cropW = artwork.width;
-            cropH = Math.round(artwork.width / targetRatio);
-            cropX = 0;
-            cropY = Math.round((artwork.height - cropH) / 2);
-          } else {
-            cropH = artwork.height;
-            cropW = Math.round(artwork.height * targetRatio);
-            cropX = Math.round((artwork.width - cropW) / 2);
-            cropY = 0;
-          }
-          return `https://www.artic.edu/iiif/2/${artwork.imageId}/${cropX},${cropY},${cropW},${cropH}/${w},/0/default.jpg`;
-        }
-      }
-
-      return `https://www.artic.edu/iiif/2/${artwork.imageId}/full/${w},/0/default.jpg`;
-    }
-    return artwork.smallImageUrl || artwork.imageUrl || '';
-  }
-
-  function getSourceUrl(art) {
-    if (art.id?.startsWith('artic:')) {
-      return `https://www.artic.edu/artworks/${art.id.slice(6)}`;
-    }
-    if (art.id?.startsWith('met:')) {
-      return `https://www.metmuseum.org/art/collection/search/${art.id.slice(4)}`;
-    }
-    if (art.id?.startsWith('nasa:')) {
-      return `https://images.nasa.gov/details/${encodeURIComponent(art.id.slice(5))}`;
-    }
-    return null;
-  }
 
   // ── Selector generation for persistence ─────────────────────────────────
 
@@ -136,88 +92,6 @@
     }
   }
 
-  // ── Hover controls ───────────────────────────────────────────────────────
-
-  function makeButton(text, title, onClick) {
-    const btn = document.createElement('button');
-    btn.className = 'arc-btn';
-    btn.textContent = text;
-    btn.title = title;
-    btn.style.cssText = [
-      'all:unset',
-      'box-sizing:border-box',
-      'width:28px',
-      'height:28px',
-      'border-radius:6px',
-      'background:rgba(0,0,0,0.65)',
-      'color:#fff',
-      'font-size:14px',
-      'cursor:pointer',
-      'display:flex',
-      'align-items:center',
-      'justify-content:center',
-      'line-height:1',
-      'transition:background 0.15s ease',
-      'font-family:-apple-system,BlinkMacSystemFont,sans-serif',
-    ].join(';');
-    btn.addEventListener('mouseenter', () => {
-      btn.style.background = 'rgba(107,76,154,0.85)';
-    });
-    btn.addEventListener('mouseleave', () => {
-      btn.style.background = 'rgba(0,0,0,0.65)';
-    });
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      e.preventDefault();
-      onClick();
-    });
-    return btn;
-  }
-
-  function addHoverControls(container, art) {
-    if (!settings.showHoverControls) return;
-
-    const controls = document.createElement('div');
-    controls.className = 'art-replacer-controls';
-    controls.style.cssText = [
-      'position:absolute',
-      'top:8px',
-      'right:8px',
-      'display:flex',
-      'gap:4px',
-      'opacity:0',
-      'transition:opacity 0.2s ease',
-      'z-index:2147483647',
-      'pointer-events:none',
-    ].join(';');
-
-    const sourceUrl = getSourceUrl(art);
-    if (sourceUrl) {
-      controls.appendChild(makeButton('↗', 'View in museum collection', () => {
-        window.open(sourceUrl, '_blank', 'noopener');
-      }));
-    }
-
-    controls.appendChild(makeButton('✕', 'Restore original element', () => {
-      unblockElement(container);
-    }));
-
-    controls.appendChild(makeButton('⚙', 'Artblock settings', () => {
-      chrome.runtime.sendMessage({ type: 'OPEN_SETTINGS' }).catch(() => {});
-    }));
-
-    container.appendChild(controls);
-
-    container.addEventListener('mouseenter', () => {
-      controls.style.opacity = '1';
-      controls.style.pointerEvents = 'auto';
-    });
-    container.addEventListener('mouseleave', () => {
-      controls.style.opacity = '0';
-      controls.style.pointerEvents = 'none';
-    });
-  }
-
   // ── Replacement ───────────────────────────────────────────────────────────
 
   async function replaceAdWithArt(adElement) {
@@ -232,24 +106,6 @@
     adElement.dataset.artReplacer = 'replacing';
 
     try {
-      const response = await chrome.runtime.sendMessage({
-        type: 'GET_ART',
-        width: w,
-        height: h,
-        categories: enabledCategories(),
-      });
-
-      if (!response?.artwork) {
-        adElement.dataset.artReplacer = 'failed';
-        return;
-      }
-
-      const art = response.artwork;
-      const imageUrl = getImageUrl(art, w, h);
-      if (!imageUrl) {
-        adElement.dataset.artReplacer = 'failed';
-        return;
-      }
 
       const container = document.createElement('div');
       container.className = 'art-replacer-container';
@@ -257,25 +113,11 @@
       container._adSelector = selector;
 
       const img = document.createElement('img');
-      img.src = imageUrl;
-      img.alt = `${art.title} by ${art.artist}`;
+      img.src = "https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Tomato_je.jpg/1280px-Tomato_je.jpg";
       img.className = 'art-replacer-image';
-      const slotRatio = w / h;
-      const fit = (slotRatio > 3 || slotRatio < 0.33) ? 'cover' : 'contain';
-      img.style.cssText = `width:100%;height:100%;object-fit:${fit};`;
-
-      const tooltip = document.createElement('div');
-      tooltip.className = 'art-replacer-tooltip';
-      tooltip.innerHTML = `
-        <strong>${escapeHtml(art.title)}</strong><br>
-        ${escapeHtml(art.artist)}${art.date ? ` (${escapeHtml(art.date)})` : ''}<br>
-        <span class="art-replacer-source">${escapeHtml(art.source)}</span>
-      `;
+      img.style.cssText = `width:100%;height:100%;object-fit:cover;`;
 
       container.appendChild(img);
-      container.appendChild(tooltip);
-      addHoverControls(container, art);
-
       if (adElement.tagName === 'IFRAME') {
         const parent = adElement.parentElement;
         if (parent) {
@@ -335,8 +177,6 @@
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'sync') {
       if (changes.enabled?.newValue === false) location.reload();
-      if (changes.categories) settings.categories = changes.categories.newValue;
-      if (changes.showHoverControls !== undefined) settings.showHoverControls = changes.showHoverControls.newValue;
     }
     if (area === 'local' && changes.unblockedElements) {
       unblockedSelectors.clear();

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Artblock",
-  "version": "1.1.1",
-  "description": "Replaces every ad on the internet with fine art from the world's greatest museums.",
+  "name": "customblock",
+  "version": "1.0",
+  "description": "Fork of artblock that is funny",
   "permissions": [
     "storage",
     "tabs"
@@ -10,9 +10,6 @@
   "host_permissions": [
     "<all_urls>"
   ],
-  "background": {
-    "service_worker": "background/service-worker.js"
-  },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
